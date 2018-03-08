@@ -1,3 +1,7 @@
+#This file contains a database manager and a api function caller
+# Created on March 8th, 2018
+# By Izak Fritz
+
 import sqlite3
 import wrapper
 import time

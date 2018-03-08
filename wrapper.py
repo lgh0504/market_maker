@@ -1,3 +1,7 @@
+# Wrapper for the Bittrex public api
+# Created on September 25, 2017
+# By Izak Fritz
+
 import urllib.request
 from urllib.parse import urlencode
 import hmac
@@ -5,9 +9,6 @@ import hashlib
 import json
 import requests
 import time
-
-# Wrapper for the Bittrex public api
-# Created by Izak Fritz 09-25-17
 
 class bittrex_wrapper:
     def __init__(self):
