@@ -53,7 +53,7 @@ class db_manager():
         self.c.execute(db_command)
 
 class api_calls():
-    def __init__():
+    def __init__(self):
         # List of all possible commands
         self.wrapper = wrapper.bittrex_wrapper()
         command_list = ["getticker", "getmarketsummaries", "getmarketsummary",
