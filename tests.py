@@ -6,7 +6,7 @@ import wrapper
 import data_processor
 
 if __name__ == "__main__":
-    caller = data_processor.api_calls()
+    caller = wrapper.bittrex_wrapper()
 
     # Test each of the api calls
     output = caller.getticker("USDT-BTC")
