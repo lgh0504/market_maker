@@ -35,15 +35,15 @@ class db_manager():
         self.c.execute(db_command)
         self.conn.commit()
 
-    def delete_first_row(self, table):
-        db_command = "DELETE FROM " + table + " WHERE rowid= (SELECT rowid FROM " + table + " order by rowid limit 1);"
+    def get_line_for_param(self, table, field={}):
+        db_command = "SELECT * FROM " + table + " WHERE " + field[0] + " = " + field[1] + ";"
+        self.c.execute(db_command)
+        return c.fetchone()
+
+    def delete_line_for_param(self, table, field={}):
+        db_command = "DELETE FROM " + table + " WHERE " + field[0] + " = " field[1] + ";"
         self.c.execute(db_command)
         self.conn.commit()
-
-    def get_line_for_param(self, table, field={}):
-        db_command = "SELECT * FROM " + table + " WHERE " + field[0] + "=" + field[1]
-        self.c.execute(table_command, (field[1],))
-        return c.fetchone()
 
     def get_all(self, table):
         db_command = "SELECT * FROM " + table
