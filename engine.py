@@ -56,9 +56,10 @@ class orderManager():
 # Aggresive market making or passive market making?
 # Our bid price and ask price
 class orderPlacement():
-    def __init__(self, inName):
+    def __init__(self, inCoin1):
         # Store a copy of the current market bid and ask (init as -1)
-        self.marketName = inName
+        self.marketName = str(inCoin1) + "-BTC"
+        self.coin1 = str(inCoin1)
         self.lastPrice = None
         self.currentAsk = None
         self.currentBid = None
@@ -71,6 +72,10 @@ class orderPlacement():
         self.ourAsk = None
         self.orderSize = None
         self.tradeAggresive = None # 1 for aggresive, 0 for passive
+        # -2 for very short, -1 for short, 0 for even, 1 for long, 2 for very long
+        self.ourPosition = None
+        self.btcTotal = None
+        self.altTotal = None
 
         # Retain an instance of an api caller
         self.api = wrapper.bittrex_wrapper()
@@ -83,9 +88,9 @@ class orderPlacement():
         self.currentMarketData = self.api.getmarketsummary(self.marketName)
         self.currentBuyBook = self.api.getorderbook(self.marketName, "buy")
         self.currentSellBook = self.api.getorderbook(self.marketName, "sell")
-        self.lastPrice = self.currentMarketData['result'][0]['Last']
         self.currentAsk = self.currentMarketData['result'][0]['Ask']
         self.currentBid = self.currentMarketData['result'][0]['Bid']
+        self.lastPrice = self.currentMarketData['result'][0]['Last']
         self.spread = abs(self.currentAsk - self.currentBid)
         self.buyTotal = 0;
         self.sellTotal = 0;
@@ -94,13 +99,34 @@ class orderPlacement():
         for i in range(0, len(self.currentSellBook['result'])):
             self.sellTotal += self.currentSellBook['result'][i]['Quantity']
 
+    # Calculate total quantity of altcoin and Bitcoin to deteremine if net long/short
+    # Defaults: Very long is defined by greater than 80-20, long is 60-40
+    # Defaults: Very short is defined by greater than 20-80, short is 40-60
+    # TODO: Add the ability to change these ratios
+    def update_our_position(self):
+        tempTotal1 = self.api.getbalance("BTC")
+        tempTotal2 = self.api.getbalance(str(self.coin1))
+        self.btcTotal = tempTotal1['result']['Balance']
+        self.altTotal = tempTotal2['result']['Balance'] / self.lastPrice
+        ratio = self.btcTotal / (self.altTotal + self.btcTotal)
+        if (ratio >= .8) :
+            self.ourPosition = -2
+        elif (ratio >= .6):
+            self.ourPosition = -1
+        elif (ratio >= .4):
+            self.ourPosition = 0
+        elif (ratio >= .2):
+            self.ourPosition = 1
+        else:
+            self.ourPosition = 2
+
     # Check if the quantity of orders is over the threshold
     def update_aggressive_or_passive(self, threshold):
         self.tradeAggresive = threshold < (abs(self.buyTotal - self.sellTotal)/(self.buyTotal + self.sellTotal))
 
     # Calculate buy and sell orders based on aggressive or passive
     def calculate_order_price(self):
-        if self.tradeAggresive:
+        if (self.tradeAggresive):
             # Evaluate our current net long/short position
             # If net long, and more selling than buying, aggressively trade against
             # If net short, and more selling than buying, aggressively trade with trend
