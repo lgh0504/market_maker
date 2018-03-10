@@ -33,9 +33,9 @@ class orderManager():
     # Get an order by ID
     def get_order_by_ID(self, uuid, open):
         if (open == 1):
-            return self.openOrderDb.get_line_for_param("open", ['uuid', uuid]))
+            return self.openOrderDb.get_line_for_param("open", ['uuid', uuid])
         else:
-            return self.closedOrderDb.get_line_for_param("closed", ['uuid', uuid]))
+            return self.closedOrderDb.get_line_for_param("closed", ['uuid', uuid])
 
     # Insert an order into the db
     def insert_order_to_db(self, uuid, price, size, filled, date, time, open):
@@ -59,28 +59,39 @@ class orderPlacement():
     def __init__(self, inName):
         # Store a copy of the current market bid and ask (init as -1)
         self.marketName = inName
-        self.currentAsk = -1
-        self.currentBid = -1
-        self.spread = -1
-        self.buyTotal = -1
-        self.sellTotal = -1
+        self.currentAsk = None
+        self.currentBid = None
+        self.spread = None
+        self.buyTotal = None
+        self.sellTotal = None
 
         # Our data we compute
-        self.ourBid = -1
-        self.ourAsk = -1
-        self.orderSize = -1
-        self.tradeAggresive = -1 # 1 for aggresive, 0 for passive
+        self.ourBid = None
+        self.ourAsk = None
+        self.orderSize = None
+        self.tradeAggresive = None # 1 for aggresive, 0 for passive
 
         # Retain an instance of an api caller
-        self.api = bittrex_wrapper()
+        self.api = wrapper.bittrex_wrapper()
         self.currentMarketData = self.api.getmarketsummary(self.marketName)
-        self.currentOrderbook
+        self.currentBuyBook = self.api.getorderbook(self.marketName, "buy")
+        self.currentSellBook = self.api.getorderbook(self.marketName, "sell")
 
     # Update all of the market data and order books
-    def update_data():
+    def update_data(self):
         self.currentMarketData = self.api.getmarketsummary(self.marketName)
-        self.currentAskBook = self.api.getorderbook(self.marketName, "buy")
+        self.currentBuyBook = self.api.getorderbook(self.marketName, "buy")
         self.currentSellBook = self.api.getorderbook(self.marketName, "sell")
-        self.currentAsk = currentMarketData['result']['ask']
-        self.currentBid = data['result']['bid']
+        self.currentAsk = self.currentMarketData['result'][0]['Ask']
+        self.currentBid = self.currentMarketData['result'][0]['Bid']
         self.spread = abs(self.currentAsk - self.currentBid)
+        self.buyTotal = 0;
+        self.sellTotal = 0;
+        for i in range(0, len(self.currentBuyBook['result'])):
+            self.buyTotal += self.currentBuyBook['result'][i]['Quantity']
+        for i in range(0, len(self.currentSellBook['result'])):
+            self.sellTotal += self.currentSellBook['result'][i]['Quantity']
+
+    # # Check if the quantity of orders is over the threshold
+    # def update_aggressive_or_passive(threshold):
+    #     # Get all of the open order and sum them

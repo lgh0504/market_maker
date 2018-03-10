@@ -41,7 +41,7 @@ class db_manager():
         return c.fetchone()
 
     def delete_line_for_param(self, table, field={}):
-        db_command = "DELETE FROM " + table + " WHERE " + field[0] + " = " field[1] + ";"
+        db_command = "DELETE FROM " + table + " WHERE " + field[0] + " = " + field[1] + ";"
         self.c.execute(db_command)
         self.conn.commit()
 
