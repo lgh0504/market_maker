@@ -59,6 +59,7 @@ class orderPlacement():
     def __init__(self, inName):
         # Store a copy of the current market bid and ask (init as -1)
         self.marketName = inName
+        self.lastPrice = None
         self.currentAsk = None
         self.currentBid = None
         self.spread = None
@@ -82,6 +83,7 @@ class orderPlacement():
         self.currentMarketData = self.api.getmarketsummary(self.marketName)
         self.currentBuyBook = self.api.getorderbook(self.marketName, "buy")
         self.currentSellBook = self.api.getorderbook(self.marketName, "sell")
+        self.lastPrice = self.currentMarketData['result'][0]['Last']
         self.currentAsk = self.currentMarketData['result'][0]['Ask']
         self.currentBid = self.currentMarketData['result'][0]['Bid']
         self.spread = abs(self.currentAsk - self.currentBid)
@@ -92,6 +94,20 @@ class orderPlacement():
         for i in range(0, len(self.currentSellBook['result'])):
             self.sellTotal += self.currentSellBook['result'][i]['Quantity']
 
-    # # Check if the quantity of orders is over the threshold
-    # def update_aggressive_or_passive(threshold):
-    #     # Get all of the open order and sum them
+    # Check if the quantity of orders is over the threshold
+    def update_aggressive_or_passive(self, threshold):
+        self.tradeAggresive = threshold < (abs(self.buyTotal - self.sellTotal)/(self.buyTotal + self.sellTotal))
+
+    # Calculate buy and sell orders based on aggressive or passive
+    def calculate_order_price(self):
+        if self.tradeAggresive:
+            # Evaluate our current net long/short position
+            # If net long, and more selling than buying, aggressively trade against
+            # If net short, and more selling than buying, aggressively trade with trend
+            # If net long, and more buying than selling, aggressively trade with trend
+            # If net short, and more buying than selling, aggresively trade against trend
+
+        else:
+            # If passive then take the passive approach
+            self.ourBid = self.lastPrice - .5 * self.spread
+            self.ourAsk = self.lastPrice + .5 * self.spread
