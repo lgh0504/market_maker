@@ -50,3 +50,37 @@ class orderManager():
             self.orderDb.get_line_for_param("open", ['uuid', uuid])
         else:
             self.orderDb.get_line_for_param("closed", ['uuid', uuid])
+
+# This class will review API data and give output based on the current market
+# It will call the api to find the current ask and bid price to decide the following:
+# Aggresive market making or passive market making?
+# Our bid price and ask price
+class orderPlacement():
+    def __init__(self, inName):
+        # Store a copy of the current market bid and ask (init as -1)
+        self.marketName = inName
+        self.currentAsk = -1
+        self.currentBid = -1
+        self.spread = -1
+        self.buyTotal = -1
+        self.sellTotal = -1
+
+        # Our data we compute
+        self.ourBid = -1
+        self.ourAsk = -1
+        self.orderSize = -1
+        self.tradeAggresive = -1 # 1 for aggresive, 0 for passive
+
+        # Retain an instance of an api caller
+        self.api = bittrex_wrapper()
+        self.currentMarketData = self.api.getmarketsummary(self.marketName)
+        self.currentOrderbook
+
+    # Update all of the market data and order books
+    def update_data():
+        self.currentMarketData = self.api.getmarketsummary(self.marketName)
+        self.currentAskBook = self.api.getorderbook(self.marketName, "buy")
+        self.currentSellBook = self.api.getorderbook(self.marketName, "sell")
+        self.currentAsk = currentMarketData['result']['ask']
+        self.currentBid = data['result']['bid']
+        self.spread = abs(self.currentAsk - self.currentBid)
