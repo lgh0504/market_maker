@@ -3,7 +3,8 @@
 # By Izak Fritz
 
 import wrapper
-import data_processor
+import database_manager
+import time
 
 # The engine will be incharge of processing all previous trades, balances,
 # orders and cancellations
@@ -15,51 +16,90 @@ import data_processor
 class tradingEngine():
     def __init__(self):
         self.orderManager = orderManager()
+        self.orderPlacement = orderPlacement()
+        self.market = "BTC-UBQ"
+        self.currentAskUUID = None
+        self.currentBidUUID = None
+
+    def order_calculations(self):
+        self.orderPlacement.update_data()
+        self.orderPlacement.update_our_position()
+        self.orderPlacement.update_aggressive_or_passive(.5)
+        self.orderPlacement.calculate_order_price()
+
+    # Make orders at the current bid and sell that has been set
+    def make_orders(self):
+        buyOrderReturn = self.orderPlacement.api.buylimit(self.orderPlacement.marketName,
+                                                          self.orderPlacement.ourBid,
+                                                          self.orderPlacement.orderSize)
+        sellOrderReturn = self.orderPlacement.api.selllimit(self.orderPlacement.marketName,
+                                                            self.orderPlacement.ourAsk,
+                                                            self.orderPlacement.orderSize)
+        if (buyOrderReturn['success']):
+            print ("Buy order successfully placed at: " + self.orderPlacement.ourBid)
+            self.currentBidUUID = buyOrderReturn['result']['uuid']
+        if (sellOrderReturn['success']):
+            print ("Sell order successfully placed at: " + self.orderPlacement.ourBid)
+            self.currentAskUUID = sellOrderReturn['result']['uuid']
+
+    # Check to see if the orders are still open, if so cancel them to make a
+    # new set of orders, if not, add them to the closed order database
+    def check_orders(self):
+        buyOrderReturn = self.orderPlacement.api.getorder(self.currentBidUUID)
+        sellOrderReturn = self.orderPlacement.api.getorder(self.currentAskUUID)
+        if (buyOrderReturn['result']['isOpen']):
+            # Cancel this order
+            self.orderPlacement.api.cancel(self.currentBidUUID)
+            print ("Buy order at: " + self.orderPlacement.ourBid + " has been canceled")
+        else:
+            self.orderManager.insert_order_to_db(self.currentBidUUID,
+                                                 buyOrderReturn['result']['Price'],
+                                                 buyOrderReturn['result']['Quantity'],
+                                                 buyOrderReturn['result']['Type'],
+                                                 buyOrderReturn['result']['Opened'])
+        if (sellOrderReturn['result']['isOpen']):
+            # Cancel this order
+            self.orderPlacement.api.cancel(self.currentAskUUID)
+            print ("Sell order at: " + self.orderPlacement.ourBid + " has been canceled")
+        else:
+            self.orderManager.insert_order_to_db(self.currentBidUUID,
+                                                 sellOrderReturn['result']['Price'],
+                                                 sellOrderReturn['result']['Quantity'],
+                                                 sellOrderReturn['result']['Type'],
+                                                 sellOrderReturn['result']['Opened'])
 
 # The order database will keep track of all orders and will store them in a table
-# The first table will contain a list of all of the orders made, and store them
-# in the following columns: uuid | price | size | filled? | date | time
+# The table will contain a list of all of the orders made, and store them
+# in the following columns: uuid | price | size | filled? | date | time | type
 class orderManager():
     def __init__(self):
         # Create a databse with two tables to manage open orders and closed orders
-        self.orderDb = data_processor.db_manager("openOrderDb")
-        self.orderDb.create_table("open",
-                                  ['uuid', 'price', 'size', 'filled', 'date', 'time'],
-                                  ['TEXT', 'REAL', 'REAL', 'INTEGER', 'TEXT', 'TEXT'])
+        self.orderDb = database_manager.db_manager("orderDb")
         self.orderDb.create_table("closed",
-                                  ['uuid', 'price', 'size', 'filled', 'date', 'time'],
-                                  ['TEXT', 'REAL', 'REAL', 'INTEGER', 'TEXT', 'TEXT'])
+                                  ['uuid', 'price', 'size', 'type', 'time'],
+                                  ['TEXT', 'REAL', 'REAL', 'TEXT', 'TEXT'])
 
     # Get an order by ID
-    def get_order_by_ID(self, uuid, open):
-        if (open == 1):
-            return self.openOrderDb.get_line_for_param("open", ['uuid', uuid])
-        else:
-            return self.closedOrderDb.get_line_for_param("closed", ['uuid', uuid])
+    def get_order_by_ID(self, uuid):
+        return self.closedOrderDb.get_line_for_param("closed", ['uuid', uuid])
 
     # Insert an order into the db
-    def insert_order_to_db(self, uuid, price, size, filled, date, time, open):
-        if (open == 1):
-            self.orderDb.insert_entry("open", [uuid, price, size, filled, date, time])
-        else:
-            self.orderDb.insert_entry("closed", [uuid, price, size, filled, date, time])
+    def insert_order_to_db(self, uuid, price, size, filled, time, inType):
+        self.orderDb.insert_entry("closed", [uuid, price, size, filled, time, inType])
 
     # Delete an order by ID
     def delete_order(self, uuid, open):
-        if (open == 1):
-            self.orderDb.get_line_for_param("open", ['uuid', uuid])
-        else:
-            self.orderDb.get_line_for_param("closed", ['uuid', uuid])
+        self.orderDb.get_line_for_param("closed", ['uuid', uuid])
 
 # This class will review API data and give output based on the current market
 # It will call the api to find the current ask and bid price to decide the following:
 # Aggresive market making or passive market making?
 # Our bid price and ask price
 class orderPlacement():
-    def __init__(self, inCoin1):
+    def __init__(self):
         # Store a copy of the current market bid and ask (init as -1)
-        self.marketName = str(inCoin1) + "-BTC"
-        self.coin1 = str(inCoin1)
+        self.marketName = "BTC-UBQ"
+        self.coin1 = str("UBQ")
         self.lastPrice = None
         self.currentAsk = None
         self.currentBid = None
@@ -70,7 +110,7 @@ class orderPlacement():
         # Our data we compute
         self.ourBid = None
         self.ourAsk = None
-        self.orderSize = None
+        self.orderSize = .0006
         self.tradeAggresive = None # 1 for aggresive buy, 0 for passive, -1 for aggresive sell
         # -2 for very short, -1 for short, 0 for even, 1 for long, 2 for very long
         self.ourPosition = None
@@ -107,7 +147,7 @@ class orderPlacement():
         tempTotal1 = self.api.getbalance("BTC")
         tempTotal2 = self.api.getbalance(str(self.coin1))
         self.btcTotal = tempTotal1['result']['Balance']
-        self.altTotal = tempTotal2['result']['Balance'] / self.lastPrice
+        self.altTotal = tempTotal2['result']['Balance'] * self.lastPrice
         ratio = self.btcTotal / (self.altTotal + self.btcTotal)
         if (ratio >= .8) :
             self.ourPosition = -1
@@ -129,22 +169,22 @@ class orderPlacement():
     def calculate_order_price(self):
         if (self.ourPosition == -1):
             # Very net short, aggressively buy
-            self.ourBid = self.lastPrice
-            self.ourAsk = self.lastPrice + self.spread
+            self.ourBid = '%.8f' % (self.lastPrice)
+            self.ourAsk = '%.8f' % (self.lastPrice + self.spread)
         elif (self.ourPosition == 1):
             # Very net long, aggressively sell
-            self.ourBid = self.lastPrice + self.spread
-            self.ourAsk = self.lastPrice
+            self.ourBid = '%.8f' % (self.lastPrice + self.spread)
+            self.ourAsk = '%.8f' % (self.lastPrice)
         else:
             if (self.tradeAggresive == 1):
                 # More buy orders than sell orders
-                self.ourBid = self.lastPrice
-                self.ourAsk = self.lastPrice + self.spread
+                self.ourBid = '%.8f' % (self.lastPrice)
+                self.ourAsk = '%.8f' % (self.lastPrice + self.spread)
             elif (self.tradeAggresive == -1):
                 # Very net long, aggressively sell
-                self.ourBid = self.lastPrice + self.spread
-                self.ourAsk = self.lastPrice
+                self.ourBid = '%.8f' % (self.lastPrice + self.spread)
+                self.ourAsk = '%.8f' % (self.lastPrice)
             else:
                 # If passive then take the passive approach
-                self.ourBid = self.lastPrice - .5 * self.spread
-                self.ourAsk = self.lastPrice + .5 * self.spread
+                self.ourBid = '%.8f' % (self.lastPrice - .5 * self.spread)
+                self.ourAsk = '%.8f' % (self.lastPrice + .5 * self.spread)
