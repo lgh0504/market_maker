@@ -71,7 +71,7 @@ class orderPlacement():
         self.ourBid = None
         self.ourAsk = None
         self.orderSize = None
-        self.tradeAggresive = None # 1 for aggresive, 0 for passive
+        self.tradeAggresive = None # 1 for aggresive buy, 0 for passive, -1 for aggresive sell
         # -2 for very short, -1 for short, 0 for even, 1 for long, 2 for very long
         self.ourPosition = None
         self.btcTotal = None
@@ -100,8 +100,8 @@ class orderPlacement():
             self.sellTotal += self.currentSellBook['result'][i]['Quantity']
 
     # Calculate total quantity of altcoin and Bitcoin to deteremine if net long/short
-    # Defaults: Very long is defined by greater than 80-20, long is 60-40
-    # Defaults: Very short is defined by greater than 20-80, short is 40-60
+    # Defaults: Very long is defined by greater than 80-20
+    # Defaults: Very short is defined by greater than 20-80
     # TODO: Add the ability to change these ratios
     def update_our_position(self):
         tempTotal1 = self.api.getbalance("BTC")
@@ -110,30 +110,41 @@ class orderPlacement():
         self.altTotal = tempTotal2['result']['Balance'] / self.lastPrice
         ratio = self.btcTotal / (self.altTotal + self.btcTotal)
         if (ratio >= .8) :
-            self.ourPosition = -2
-        elif (ratio >= .6):
             self.ourPosition = -1
-        elif (ratio >= .4):
+        elif (ratio < .8 and ratio >= .2):
             self.ourPosition = 0
-        elif (ratio >= .2):
-            self.ourPosition = 1
         else:
-            self.ourPosition = 2
+            self.ourPosition = 1
 
     # Check if the quantity of orders is over the threshold
     def update_aggressive_or_passive(self, threshold):
-        self.tradeAggresive = threshold < (abs(self.buyTotal - self.sellTotal)/(self.buyTotal + self.sellTotal))
+        if (threshold < (abs(self.buyTotal - self.sellTotal)/(self.buyTotal + self.sellTotal))):
+            self.tradeAggresive = 1
+        elif (threshold < (abs(self.sellTotal - self.buyTotal)/(self.buyTotal + self.sellTotal))):
+            self.tradeAggresive = -1
+        else:
+            self.tradeAggresive = 0
 
     # Calculate buy and sell orders based on aggressive or passive
     def calculate_order_price(self):
-        if (self.tradeAggresive):
-            # Evaluate our current net long/short position
-            # If net long, and more selling than buying, aggressively trade against
-            # If net short, and more selling than buying, aggressively trade with trend
-            # If net long, and more buying than selling, aggressively trade with trend
-            # If net short, and more buying than selling, aggresively trade against trend
-
+        if (self.ourPosition == -1):
+            # Very net short, aggressively buy
+            self.ourBid = self.lastPrice
+            self.ourAsk = self.lastPrice + self.spread
+        elif (self.ourPosition == 1):
+            # Very net long, aggressively sell
+            self.ourBid = self.lastPrice + self.spread
+            self.ourAsk = self.lastPrice
         else:
-            # If passive then take the passive approach
-            self.ourBid = self.lastPrice - .5 * self.spread
-            self.ourAsk = self.lastPrice + .5 * self.spread
+            if (self.tradeAggresive == 1):
+                # More buy orders than sell orders
+                self.ourBid = self.lastPrice
+                self.ourAsk = self.lastPrice + self.spread
+            elif (self.tradeAggresive == -1):
+                # Very net long, aggressively sell
+                self.ourBid = self.lastPrice + self.spread
+                self.ourAsk = self.lastPrice
+            else:
+                # If passive then take the passive approach
+                self.ourBid = self.lastPrice - .5 * self.spread
+                self.ourAsk = self.lastPrice + .5 * self.spread
