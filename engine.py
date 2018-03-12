@@ -29,25 +29,33 @@ class tradingEngine():
 
     # Make orders at the current bid and sell that has been set
     def make_orders(self):
+        print (self.orderPlacement.orderSize)
         buyOrderReturn = self.orderPlacement.api.buylimit(self.orderPlacement.marketName,
-                                                          self.orderPlacement.ourBid,
-                                                          self.orderPlacement.orderSize)
+                                                          self.orderPlacement.orderSize,
+                                                          self.orderPlacement.ourBid)
         sellOrderReturn = self.orderPlacement.api.selllimit(self.orderPlacement.marketName,
-                                                            self.orderPlacement.ourAsk,
-                                                            self.orderPlacement.orderSize)
+                                                            self.orderPlacement.orderSize,
+                                                            self.orderPlacement.ourAsk)
         if (buyOrderReturn['success']):
             print ("Buy order successfully placed at: " + self.orderPlacement.ourBid)
             self.currentBidUUID = buyOrderReturn['result']['uuid']
+        else:
+            print ("Buy order failed to be placed at: " + self.orderPlacement.ourBid)
+            print (buyOrderReturn)
+
         if (sellOrderReturn['success']):
-            print ("Sell order successfully placed at: " + self.orderPlacement.ourBid)
+            print ("Sell order successfully placed at: " + self.orderPlacement.ourAsk)
             self.currentAskUUID = sellOrderReturn['result']['uuid']
+        else:
+            print ("Sell order failed to be placed at: " + self.orderPlacement.ourAsk)
+            print (sellOrderReturn)
 
     # Check to see if the orders are still open, if so cancel them to make a
     # new set of orders, if not, add them to the closed order database
     def check_orders(self):
         buyOrderReturn = self.orderPlacement.api.getorder(self.currentBidUUID)
         sellOrderReturn = self.orderPlacement.api.getorder(self.currentAskUUID)
-        if (buyOrderReturn['result']['isOpen']):
+        if (buyOrderReturn['result']['IsOpen']):
             # Cancel this order
             self.orderPlacement.api.cancel(self.currentBidUUID)
             print ("Buy order at: " + self.orderPlacement.ourBid + " has been canceled")
@@ -57,7 +65,7 @@ class tradingEngine():
                                                  buyOrderReturn['result']['Quantity'],
                                                  buyOrderReturn['result']['Type'],
                                                  buyOrderReturn['result']['Opened'])
-        if (sellOrderReturn['result']['isOpen']):
+        if (sellOrderReturn['result']['IsOpen']):
             # Cancel this order
             self.orderPlacement.api.cancel(self.currentAskUUID)
             print ("Sell order at: " + self.orderPlacement.ourBid + " has been canceled")
@@ -84,8 +92,8 @@ class orderManager():
         return self.closedOrderDb.get_line_for_param("closed", ['uuid', uuid])
 
     # Insert an order into the db
-    def insert_order_to_db(self, uuid, price, size, filled, time, inType):
-        self.orderDb.insert_entry("closed", [uuid, price, size, filled, time, inType])
+    def insert_order_to_db(self, uuid, price, size, inType, time):
+        self.orderDb.insert_entry("closed", [str(uuid), price, size, str(inType), str(time)])
 
     # Delete an order by ID
     def delete_order(self, uuid, open):
@@ -110,7 +118,7 @@ class orderPlacement():
         # Our data we compute
         self.ourBid = None
         self.ourAsk = None
-        self.orderSize = .0006
+        self.orderSize = None
         self.tradeAggresive = None # 1 for aggresive buy, 0 for passive, -1 for aggresive sell
         # -2 for very short, -1 for short, 0 for even, 1 for long, 2 for very long
         self.ourPosition = None
@@ -131,6 +139,7 @@ class orderPlacement():
         self.currentAsk = self.currentMarketData['result'][0]['Ask']
         self.currentBid = self.currentMarketData['result'][0]['Bid']
         self.lastPrice = self.currentMarketData['result'][0]['Last']
+        self.orderSize = '%.8f' % (.0006 / self.lastPrice)
         self.spread = abs(self.currentAsk - self.currentBid)
         self.buyTotal = 0;
         self.sellTotal = 0;

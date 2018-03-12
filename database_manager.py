@@ -29,7 +29,7 @@ class db_manager():
         # Create db_command by stating we are adding an entry to the table_command
         db_command = "INSERT INTO " + table + " VALUES ("
         for i in range (0, len(data)-1):
-            db_command += "'" + data[i] + "', "
+            db_command += "'" + str(data[i]) + "', "
         db_command += (str(data[len(data)-1]) + " );")
 
         self.c.execute(db_command)
