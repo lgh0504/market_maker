@@ -29,7 +29,6 @@ class tradingEngine():
 
     # Make orders at the current bid and sell that has been set
     def make_orders(self):
-        print (self.orderPlacement.orderSize)
         buyOrderReturn = self.orderPlacement.api.buylimit(self.orderPlacement.marketName,
                                                           self.orderPlacement.orderSize,
                                                           self.orderPlacement.ourBid)
