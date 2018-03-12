@@ -63,7 +63,7 @@ class tradingEngine():
                                                  buyOrderReturn['result']['Price'],
                                                  buyOrderReturn['result']['Quantity'],
                                                  buyOrderReturn['result']['Type'],
-                                                 buyOrderReturn['result']['Opened'])
+                                                 str(time.time()))
         if (sellOrderReturn['result']['IsOpen']):
             # Cancel this order
             self.orderPlacement.api.cancel(self.currentAskUUID)
@@ -73,7 +73,7 @@ class tradingEngine():
                                                  sellOrderReturn['result']['Price'],
                                                  sellOrderReturn['result']['Quantity'],
                                                  sellOrderReturn['result']['Type'],
-                                                 sellOrderReturn['result']['Opened'])
+                                                 str(time.time()))
 
 # The order database will keep track of all orders and will store them in a table
 # The table will contain a list of all of the orders made, and store them
